@@ -1722,9 +1722,12 @@ impl ExpectTLS13Finished {
         let plain = get_server_session_value_tls13(&self.handshake, sess, &nonce)
             .get_encoding();
 
+        trace!("emit_stateful_ticket_tls13 : id {:?}, plain {:?}", id, plain, nonce);
+
         if sess.config.session_storage.put(id.clone(), plain) {
-            let stateful_lifetime = 24 * 60 * 60; // this is a bit of a punt
-            let age_add = rand::random_u32();
+            let stateful_lifetime = 24 * 60 * 60 * 365 * 100; // I broke this!
+            // let age_add = rand::random_u32();
+            let age_add = 0;
             let payload = NewSessionTicketPayloadTLS13::new(stateful_lifetime, age_add, nonce, id);
             let m = Message {
                 typ: ContentType::Handshake,
