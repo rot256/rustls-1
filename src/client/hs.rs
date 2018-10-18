@@ -89,6 +89,8 @@ fn find_session(sess: &mut ClientSessionImpl, dns_name: webpki::DNSNameRef)
     let key = persist::ClientSessionKey::session_for_dns_name(dns_name);
     let key_buf = key.get_encoding();
 
+    trace!("find_session, sess.config.session_persistence.get");
+
     let maybe_value = sess.config.session_persistence.get(&key_buf);
 
     if maybe_value.is_none() {
@@ -112,12 +114,16 @@ fn find_kx_hint(sess: &mut ClientSessionImpl, dns_name: webpki::DNSNameRef) -> O
     let key = persist::ClientSessionKey::hint_for_dns_name(dns_name);
     let key_buf = key.get_encoding();
 
+    trace!("find_kx_hint, sess.config.session_persistence.get");
+
     let maybe_value = sess.config.session_persistence.get(&key_buf);
     maybe_value.and_then(|enc| NamedGroup::read_bytes(&enc))
 }
 
 fn save_kx_hint(sess: &mut ClientSessionImpl, dns_name: webpki::DNSNameRef, group: NamedGroup) {
     let key = persist::ClientSessionKey::hint_for_dns_name(dns_name);
+
+    trace!("save_kx_hint, sess.config.session_persistence.get");
 
     sess.config.session_persistence.put(key.get_encoding(), group.get_encoding());
 }
@@ -1922,6 +1928,9 @@ impl State for ExpectTLS12NewTicket {
 fn save_session(handshake: &mut HandshakeDetails,
                 recvd_ticket: &mut ReceivedTicketDetails,
                 sess: &mut ClientSessionImpl) {
+
+    trace!("save_session");
+
     // Save a ticket.  If we got a new ticket, save that.  Otherwise, save the
     // original ticket again.
     let mut ticket = mem::replace(&mut recvd_ticket.new_ticket, Vec::new());
@@ -1950,6 +1959,8 @@ fn save_session(handshake: &mut HandshakeDetails,
     if handshake.using_ems {
         value.set_extended_ms_used();
     }
+
+    trace!("save_session, sess.config.session_persistence.put");
 
     let worked = sess.config.session_persistence.put(key.get_encoding(),
                                                      value.get_encoding());
@@ -2275,6 +2286,9 @@ struct ExpectTLS13Traffic {
 
 impl ExpectTLS13Traffic {
     fn handle_new_ticket_tls13(&mut self, sess: &mut ClientSessionImpl, m: Message) -> Result<(), TLSError> {
+
+        trace!("handle_new_ticket_tls13");
+
         let nst = extract_handshake!(m, HandshakePayload::NewSessionTicketTLS13).unwrap();
         let handshake_hash = self.handshake.transcript.get_current_hash();
         let resumption_master_secret = sess.common
@@ -2283,6 +2297,8 @@ impl ExpectTLS13Traffic {
         let secret = sess.common
             .get_key_schedule()
             .derive_ticket_psk(&resumption_master_secret, &nst.nonce.0);
+
+        trace!("handle_new_ticket_tls13, sescret: {:?}", secret);
 
         let mut value = persist::ClientSessionValue::new(ProtocolVersion::TLSv1_3,
                                                          sess.common.get_suite_assert().suite,
@@ -2298,6 +2314,9 @@ impl ExpectTLS13Traffic {
         }
 
         let key = persist::ClientSessionKey::session_for_dns_name(self.handshake.dns_name.as_ref());
+
+        trace!("save_session, sess.config.session_persistence.put");
+        trace!("save_session, key {:?}", key);
 
         let worked = sess.config.session_persistence.put(key.get_encoding(),
                                                          value.get_encoding());
